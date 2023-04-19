@@ -1,12 +1,20 @@
 import express from 'express'
 import http from 'http'
-import mongoose from 'mongoose'
+import mongoose, { connection } from 'mongoose'
 import { config } from './config/config';
 import Logger from './library/Logger';
 import userRoute from './routes/User';
 import responseFormat from './middlewares/Response';
+import session from 'express-session';
+import MongoStore from 'connect-mongo';
 
 const router = express();
+
+declare module 'express-session' {
+    export interface SessionData {
+        user: string;
+    }
+}
 
 mongoose.connect(config.mongo.url)
     .then(() => {
@@ -41,9 +49,33 @@ const StartServer = () => {
         next();
     })
 
+    // const sessionStore = new MongoStore({
+    //     mongooseConnection: connection,
+    //     collection: 'sessions'
+    // })
+
+    router.use(session({
+        secret: 'secret',
+        resave: false,
+        saveUninitialized: true,
+        store: MongoStore.create({
+            mongoUrl: config.mongo.url
+        }),
+        cookie: {
+            maxAge: 1000 * 24 * 60 * 60
+        }
+
+    }));
+
+
     router.use('/user', userRoute);
+    // router.use(responseFormat)
+
 
     router.get('/health', (req, res, next) => {
+        req.session.user = 'satyam'
+        req.session.save()
+        console.log(req.session)
         res.status(200).json({ message: 'All good!!' })
     })
 
